@@ -38,14 +38,15 @@ A modern, user-friendly GUI application for downloading videos and audio from Yo
    ```
 
 3. **Install Dependencies**:
+   
 You can install the dependencies by using the ``pyproject.toml`` file with the following
 
-4. **Run the Application**:
+5. **Run the Application**:
    ```bash
    python app.py
    ```
 
-5. **FFmpeg Check**: On first run, the app will check for FFmpeg. If not found, it will prompt to install it automatically (requires internet).
+6. **FFmpeg Check**: On first run, the app will check for FFmpeg. If not found, it will prompt to install it automatically (requires internet).
 
 ---
 
