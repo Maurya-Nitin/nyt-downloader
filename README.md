@@ -38,16 +38,7 @@ A modern, user-friendly GUI application for downloading videos and audio from Yo
    ```
 
 3. **Install Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-   Required packages include:
-   - `yt-dlp`
-   - `tkinter` (usually included with Python)
-   - `pandas`
-   - `aiofiles`
-   - `pystray`
-   - `Pillow`
+You can install the dependencies by using the ``pyproject.toml`` file with the following
 
 4. **Run the Application**:
    ```bash
