@@ -17,12 +17,6 @@ A modern, user-friendly GUI application for downloading videos and audio from Yo
 
 ---
 
-## Screenshots
-
-*Coming soon!*
-
----
-
 ## Installation
 
 ### Prerequisites
