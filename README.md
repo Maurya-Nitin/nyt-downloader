@@ -22,7 +22,7 @@ A modern, user-friendly GUI application for downloading videos and audio from Yo
 ### Prerequisites
 - **Python 3.8+**: Ensure Python is installed on your system.
 - **FFmpeg**: Required for post-processing (e.g., merging audio/video, embedding subtitles). The app will prompt to install FFmpeg if not found.
-- **Dependencies**: Install the required Python packages listed in `requirements.txt`.
+- **Dependencies**: Install the required Python packages listed in `pyproject.toml`.
 
 ### Steps
 1. **Clone the Repository**:
