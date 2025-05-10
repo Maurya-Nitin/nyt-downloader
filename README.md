@@ -1,112 +1,149 @@
-# NYT Downloader 🎥
+# NYT Downloader
 
-![GitHub release](https://img.shields.io/github/release/LauraHeroStyles/nyt-downloader.svg) ![GitHub issues](https://img.shields.io/github/issues/LauraHeroStyles/nyt-downloader.svg) ![GitHub stars](https://img.shields.io/github/stars/LauraHeroStyles/nyt-downloader.svg)
+A modern, user-friendly GUI application for downloading videos and audio from YouTube and other supported platforms using `yt-dlp`. This application provides a feature-rich interface to manage download queues, customize settings, and handle advanced options like SponsorBlock, subtitles, and metadata embedding.
 
-NYT Downloader is a powerful, open-source GUI for **yt-dlp**, built with Python and Tkinter. It offers full settings customization, download queue management, preset saving/loading, and an intuitive interface—perfect for anyone wanting a smarter way to manage video downloads.
+---
 
-## Table of Contents
+## Features
 
-- [Features](#features)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Customization](#customization)
-- [Contributing](#contributing)
-- [License](#license)
-- [Support](#support)
+- **Intuitive GUI**: Built with Tkinter, featuring a clean and responsive interface for managing downloads.
+- **Queue Management**: Add, import, export, and clear download queues with support for playlists and spreadsheets (CSV/Excel).
+- **Customizable Settings**: Fine-tune download options such as format, quality, file naming, subtitles, metadata, and SponsorBlock settings.
+- **Concurrent Downloads**: Supports up to 4 simultaneous downloads for faster processing.
+- **SponsorBlock Integration**: Mark or remove sponsor segments, intros, outros, and more.
+- **System Tray Support**: Minimize the app to the system tray and run downloads in the background.
+- **Logging**: Detailed, color-coded logs with export functionality for debugging and tracking.
+- **Cross-Platform**: Compatible with Windows, Linux, and macOS (requires FFmpeg).
 
-## Features 🌟
+---
 
-- **User-Friendly Interface**: The application provides an intuitive layout, making it easy for users of all skill levels to navigate.
-- **Full Settings Customization**: Adjust settings to fit your needs. You can set output formats, quality, and more.
-- **Download Queue Management**: Add multiple downloads to a queue and manage them effortlessly.
-- **Preset Saving/Loading**: Save your favorite settings as presets and load them when needed.
-- **Cross-Platform Compatibility**: Works on Windows, macOS, and Linux.
-- **Built on yt-dlp**: Leverage the power of yt-dlp for reliable video downloading.
+## Screenshots
 
-## Installation ⚙️
+*Coming soon!*
 
-To get started with NYT Downloader, follow these steps:
+---
 
-1. **Download the Latest Release**: Visit the [Releases](https://github.com/LauraHeroStyles/nyt-downloader/releases) section to download the latest version. Look for the file you need to download and execute.
-   
-2. **Install Dependencies**: Make sure you have Python installed on your system. You can download it from [python.org](https://www.python.org/downloads/). After installing Python, you can install the required packages using pip:
+## Installation
 
+### Prerequisites
+- **Python 3.8+**: Ensure Python is installed on your system.
+- **FFmpeg**: Required for post-processing (e.g., merging audio/video, embedding subtitles). The app will prompt to install FFmpeg if not found.
+- **Dependencies**: Install the required Python packages listed in `requirements.txt`.
+
+### Steps
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/yourusername/nyt-downloader.git
+   cd nyt-downloader
+   ```
+
+2. **Set Up a Virtual Environment** (optional but recommended):
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install Dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
+   Required packages include:
+   - `yt-dlp`
+   - `tkinter` (usually included with Python)
+   - `pandas`
+   - `aiofiles`
+   - `pystray`
+   - `Pillow`
 
-3. **Run the Application**: Navigate to the directory where you downloaded the application and run:
-
+4. **Run the Application**:
    ```bash
-   python main.py
+   python app.py
    ```
 
-## Usage 📥
+5. **FFmpeg Check**: On first run, the app will check for FFmpeg. If not found, it will prompt to install it automatically (requires internet).
 
-Once you have installed the application, follow these steps to start downloading videos:
+---
 
-1. **Open NYT Downloader**: Launch the application by running `main.py`.
-   
-2. **Enter Video URL**: Copy the URL of the video you want to download and paste it into the input field.
+## Usage
 
-3. **Select Download Options**: Choose your preferred format and quality from the dropdown menus.
+1. **Launch the App**:
+   Run `python app.py` to start the application. The main window will open in a maximized state.
 
-4. **Add to Queue**: Click the "Add to Queue" button to add the video to your download queue.
+2. **Add Downloads**:
+   - Enter a YouTube URL or search query in the "Input" section and click "Add to Queue" (or press Enter).
+   - For playlists, simply provide the playlist URL.
+   - Alternatively, load a spreadsheet (CSV/Excel) with URLs/queries via the "Load Spreadsheet" section.
 
-5. **Start Downloading**: Once you have added all your videos, click the "Start Download" button to begin the downloading process.
+3. **Select Download Directory**:
+   Click "Select Folder" to choose where your files will be saved.
 
-## Customization 🎨
+4. **Customize Settings**:
+   - Use the "Handy Settings" section for quick options like format, extension, and SponsorBlock.
+   - Click "Full Settings" (or press F2) for advanced configuration, including file naming, subtitles, and more.
 
-NYT Downloader allows you to customize various settings to enhance your downloading experience:
+5. **Start Downloads**:
+   Click "Start Downloads" to begin downloading all queued items. The app supports up to 4 concurrent downloads.
 
-- **Output Format**: Choose between MP4, MP3, or other formats based on your needs.
-- **Quality Settings**: Select the quality of the video you want to download, ranging from low to high.
-- **Presets**: Save your settings as presets for easy access in future sessions.
+6. **Manage Queue**:
+   - View the download queue in the "Download Queue" section.
+   - Use buttons to refresh, export, import, or clear the queue.
+   - Select items to modify settings or remove them.
 
-To access the settings, click on the "Settings" button in the main menu.
+7. **Minimize to Tray**:
+   Click "Run in Background" to minimize the app to the system tray while downloads continue.
 
-## Contributing 🤝
+8. **View Logs**:
+   Check the "Download Logs" section for detailed, color-coded logs. Export logs to a file if needed.
 
-We welcome contributions to improve NYT Downloader. If you want to help, please follow these steps:
+---
 
-1. **Fork the Repository**: Click the "Fork" button on the top right of the repository page.
-   
-2. **Clone Your Fork**: Clone your forked repository to your local machine:
+## Project Structure
 
-   ```bash
-   git clone https://github.com/your-username/nyt-downloader.git
-   ```
+- `app.py`: Entry point for the application.
+- `core/`:
+  - `downloader.py`: Handles downloading tasks using `yt-dlp`.
+  - `logger.py`: Implements a logging system with colored output.
+  - `queue.py`: Manages the download queue, including adding, clearing, and importing/exporting.
+  - `settings.py`: Manages download settings and presets.
+- `ui/`:
+  - `main_window.py`: Defines the main GUI window and its components.
+  - `widgets.py`: Implements the settings window with a tabbed interface.
+- `utils/`:
+   - `helpers.py`: Utility functions, including FFmpeg installation checks.
+- `assets/`: Contains icons and images used in the GUI (e.g., `logo.ico`, `export.png`).
 
-3. **Create a Branch**: Create a new branch for your feature or bug fix:
+---
 
+## Contributing
+
+Contributions are welcome! To contribute:
+
+1. Fork the repository.
+2. Create a new branch for your feature or bugfix:
    ```bash
    git checkout -b feature-name
    ```
-
-4. **Make Changes**: Implement your changes and commit them:
-
+3. Make your changes and commit them:
    ```bash
-   git commit -m "Description of changes"
+   git commit -m "Add feature-name"
    ```
-
-5. **Push to Your Fork**: Push your changes to your forked repository:
-
+4. Push to your fork and create a pull request:
    ```bash
    git push origin feature-name
    ```
 
-6. **Create a Pull Request**: Go to the original repository and create a pull request to propose your changes.
-
-## License 📄
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-## Support 💬
-
-If you encounter any issues or have questions, feel free to check the [Issues](https://github.com/LauraHeroStyles/nyt-downloader/issues) section or reach out to the community for support.
-
-For the latest updates and releases, visit the [Releases](https://github.com/LauraHeroStyles/nyt-downloader/releases) section again.
+Please ensure your code follows the project's coding style and includes appropriate documentation.
 
 ---
 
-Thank you for using NYT Downloader! We hope it makes your video downloading experience smoother and more efficient. Happy downloading!
+## License
+
+This project is licensed under the MIT License
+
+---
+
+## Acknowledgments
+
+- Built with [yt-dlp](https://github.com/yt-dlp/yt-dlp) for downloading and processing media.
+- Uses [Tkinter](https://docs.python.org/3/library/tkinter.html) for the GUI.
+- Thanks to the open-source community for providing tools and libraries that made this project possible.
