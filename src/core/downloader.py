@@ -4,9 +4,9 @@ import queue
 import threading
 import yt_dlp as youtube_dl
 from typing import Dict, Any, Optional
-from core.logger import Logger
+from core.logger import Logger #type: ignore
 from tkinter import filedialog
-from core.queue import QueueManager
+from core.queue import QueueManager #type: ignore
 
 """Downloader module for handling video/audio downloads using yt-dlp."""
 

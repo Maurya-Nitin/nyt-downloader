@@ -9,9 +9,9 @@ import sys
 import threading
 from typing import Dict, List, Optional, Union, Any, Tuple
 
-from core.downloader import Downloader
-from core.queue import QueueManager
-from core.settings import SettingsManager
+from core.downloader import Downloader#type: ignore
+from core.queue import QueueManager#type: ignore
+from core.settings import SettingsManager#type: ignore
 
 # Main application class for the NYT Downloader GUI
 class DownloaderApp(Downloader, QueueManager, SettingsManager):
@@ -422,7 +422,7 @@ class DownloaderApp(Downloader, QueueManager, SettingsManager):
             self.queue_table.tag_configure("green", foreground="green")
             self.queue_table.tag_configure("red", foreground="red")
 
-        self.master.after(10, update_queue_listbox)
+        self.master.after(100, update_queue_listbox)
 
     # Export logs to a file
     def export_logs(self) -> None:
@@ -477,8 +477,8 @@ class DownloaderApp(Downloader, QueueManager, SettingsManager):
 
     # Minimize application to system tray
     def minimize_to_tray(self) -> None:
-        self.master.withdraw()
         self._show_tray_icon()
+        self.master.withdraw()
 
     # Show system tray icon
     def _show_tray_icon(self) -> None:

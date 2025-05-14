@@ -3,73 +3,77 @@
 # including tabs for format, file naming, subtitles, and more.
 
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog, scrolledtext
+from tkinter import ttk, messagebox, filedialog,scrolledtext
 import json
 import os
 from typing import Dict, Optional, Union
 
-
 class SettingsWindow:
     """A window for configuring yt-dlp download settings with a tabbed interface."""
-    
-    def __init__(self, parent: tk.Tk, initial_options: Optional[Dict] = None, is_global: bool = False) -> None:
-        """Initialize the settings window with tabs and controls."""
-        self.window = tk.Toplevel(parent)
-        self.window.title("Global yt-dlp Settings" if is_global else "yt-dlp Settings")
-        self.window.geometry("1000x700")
-        self.window.transient(parent)
-        self.window.grab_set()
-        
+
+    def __init__(self, master: tk.Tk, initial_options: Optional[Dict] = None, global_change: bool = False) -> None:
+        self.master = tk.Toplevel(master)
+        if global_change:
+            self.master.title("Global yt-dlp Settings")
+        else:
+            self.master.title("yt-dlp Settings")
+        self.master.geometry("1000x700")
+        self.master.transient(master)
+        self.master.grab_set()
+
         self.widgets: Dict[str, Union[tk.Entry, tk.BooleanVar, Dict[str, tk.Spinbox], ttk.Combobox]] = {}
         self.initial_options = initial_options or {}
         self.is_loading = False
-        self.preset_directory = "settings_presets"
-        os.makedirs(self.preset_directory, exist_ok=True)
-        
-        self.main_panel = ttk.PanedWindow(self.window, orient=tk.HORIZONTAL)
+        self.preset_dir = "settings_presets"
+
+        os.makedirs(self.preset_dir, exist_ok=True)
+
+        self.main_panel = ttk.Panedwindow(self.master, orient=tk.HORIZONTAL)
         self.main_panel.pack(fill="both", expand=True, padx=10, pady=10)
-        
+
+        # Create a left panel for Settings and buttons
         self.left_panel = ttk.Frame(self.main_panel)
         self.left_panel.pack(side=tk.LEFT, fill="both", expand=True, padx=10, pady=10)
-        
+
+        # Create a right panel for preview
         self.right_panel = ttk.Frame(self.main_panel)
         self.right_panel.pack(side=tk.RIGHT, fill="both", padx=10, pady=10)
-        
         self.main_panel.add(self.left_panel, weight=1)
         self.main_panel.add(self.right_panel, weight=1)
-        
-        self.preview_text = scrolledtext.ScrolledText(master=self.right_panel, wrap=tk.WORD, background="#222", foreground="white")
+
+        # Create a preview ScrolledText box in the right panel
+        self.preview_text = scrolledtext.ScrolledText(master=self.right_panel, wrap=tk.WORD,background="#222",foreground="white")
         self.preview_text.pack(fill="both", expand=True, padx=10, pady=10)
         self.preview_text.insert("1.0", "Settings Preview:\n")
         self.preview_text.insert("2.0", json.dumps(initial_options, indent=4) if initial_options else "No settings loaded.")
         self.preview_text.config(state="disabled")
-        
-        self.ydl_options = initial_options or {}
-        
+        self.ydl_opts = initial_options or {}
         self.notebook_frame = ttk.Frame(self.left_panel)
         self.notebook_frame.pack(side=tk.TOP, fill="both", expand=True, padx=10, pady=10)
-        
+        # Create a frame for the buttons at the bottom of the window
         button_frame = ttk.Frame(self.left_panel)
         button_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
-        
-        ttk.Button(button_frame, text="Save Preset", command=self._save_preset).pack(side=tk.LEFT, padx=5)
+        #Buttons to save and load presets and to cancel the process in between
+        ttk.Button(button_frame, text="Save Preset", command=self.save_preset).pack(side=tk.LEFT, padx=5)
+        # Dropdown in button_frame
         self.preset_var = tk.StringVar()
         self.preset_dropdown = ttk.Combobox(button_frame, textvariable=self.preset_var, state="readonly")
         self.preset_dropdown.pack(side=tk.LEFT, padx=5)
-        self.preset_dropdown.bind("<<ComboboxSelected>>", self._on_preset_selected)
-        
-        ttk.Button(button_frame, text="Save", command=self._save_and_close).pack(side=tk.RIGHT, padx=5)
-        ttk.Button(button_frame, text="Cancel", command=self._cancel).pack(side=tk.RIGHT, padx=5)
-        self.window.protocol("WM_DELETE_WINDOW", self._cancel)
-        
-        self.notebook = ttk.Notebook(self.notebook_frame)
+        self.preset_dropdown.bind("<<ComboboxSelected>>", self.on_preset_selected)
+
+        ttk.Button(button_frame, text="Save", command=self.save_and_close).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=self.cancel).pack(side=tk.RIGHT, padx=5)
+        # Bind the close event to save the settings
+        self.master.protocol("WM_DELETE_WINDOW", self.cancel)
+        # Create a frame for the notebook tabs
+        # Initialize the notebook tabs
+        self.notebook = ttk.Notebook(self.notebook_frame)        
         self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
-        self.notebook.bind("<<NotebookTabChanged>>", lambda event: [self._load_values(), self._update_preview()])
-        
-        self.video_extensions = ["mp4", "webm", "mkv", "flv", "avi"]
-        self.audio_extensions = ["mp3", "m4a", "aac", "wav", "ogg", "opus"]
-        self.final_extension_options = ['original'] + self.video_extensions + self.audio_extensions
-        
+        self.notebook.bind("<<NotebookTabChanged>>", lambda event: [self.load_values(), self.update_preview()])
+        self.video_exts = ["mp4", "webm", "mkv", "flv", "avi"]
+        self.audio_exts = ["mp3", "m4a", "aac", "wav", "ogg", "opus"]
+        self.final_ext_options = ['original'] + self.video_exts + self.audio_exts
+        # Create the tabs and add them to the notebook
         self.tabs = {
             "Format and Quality": ttk.Frame(self.notebook),
             "File and Naming Options": ttk.Frame(self.notebook),
@@ -78,84 +82,78 @@ class SettingsWindow:
             "SponsorBlock & Skipping": ttk.Frame(self.notebook),
             "Miscellaneous Settings": ttk.Frame(self.notebook)
         }
-        
+
         for name, frame in self.tabs.items():
             self.notebook.add(frame, text=name)
-        
-        self._build_format_and_quality_tab()
-        self._build_file_naming_tab()
-        self._build_subtitles_metadata_tab()
-        self._build_download_behavior_tab()
-        self._build_sponsorblock_tab()
-        self._build_miscellaneous_tab()
-        self._refresh_preset_list()
-        self._load_values()
-        self._update_preview(initial_options)
 
-    def _refresh_preset_list(self) -> None:
-        """Update the preset dropdown with available preset files."""
-        files = [f[:-5] for f in os.listdir(self.preset_directory) if f.endswith(".json")]
+        self.build_format_and_quality_tab()
+        self.build_file_naming_tab()
+        self.build_subtitles_metadata_tab()
+        self.build_download_behavior_tab()
+        self.build_sponsorblock_tab()
+        self.build_miscellaneous_tab()
+        self.refresh_preset_list()
+        self.load_values()
+        self.update_preview(initial_options)
+
+    def refresh_preset_list(self):
+        files = [f[:-5] for f in os.listdir(self.preset_dir) if f.endswith(".json")]
         self.preset_dropdown["values"] = files + ["New/Unsaved"]
         self.preset_var.set("New/Unsaved")
-
-    def _on_preset_selected(self, event: Optional[tk.Event] = None) -> None:
-        """Load settings from the selected preset file."""
+    def on_preset_selected(self, event=None):
         name = self.preset_var.get()
         if name == "New/Unsaved":
             return
-        path = os.path.join(self.preset_directory, f"{name}.json")
+        path = os.path.join(self.preset_dir, f"{name}.json")
         try:
             with open(path, "r") as f:
                 self.is_loading = True
-                self.ydl_options = json.load(f)
-            self._load_values()
-            self._update_preview()
+                self.ydl_opts = json.load(f)
+            self.load_values()
+            self.update_preview()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load preset: {e}")
         finally:
             self.is_loading = False
 
-    def _add_browse_directory(self, parent: ttk.Frame, key: str, label: str, row: int) -> None:
-        """Add a directory selection widget with a browse button."""
+
+    def add_browse_dir(self, parent, key, label, row):
         ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", padx=10, pady=5)
         entry = ttk.Entry(parent)
-        entry.insert(0, self.ydl_options.get(key, ""))
+        entry.insert(0, self.ydl_opts.get(key, ""))
         entry.grid(row=row, column=1, sticky="ew", padx=10)
         parent.columnconfigure(1, weight=1)
-        
-        def _browse() -> None:
+
+        def browse():
             folder = filedialog.askdirectory()
             if folder:
                 entry.delete(0, tk.END)
                 entry.insert(0, folder)
-        
-        ttk.Button(parent, text="Browse", command=_browse).grid(row=row, column=2, padx=5)
+
+        ttk.Button(parent, text="Browse", command=browse).grid(row=row, column=2, padx=5)
         self.widgets[key] = entry
 
-    def _add_labeled_entry(self, parent: ttk.Frame, label: str, row: int, default: str = "", tooltip: str = "") -> tk.Entry:
-        """Add a labeled text entry widget."""
+    def add_labeled_entry(self, parent, label, row, default="", tooltip=""):
         ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", padx=10, pady=2)
         entry = ttk.Entry(parent)
         entry.insert(0, default)
         entry.grid(row=row, column=1, sticky="ew", padx=10)
         if tooltip:
             ttk.Label(parent, text=tooltip, foreground="gray", wraplength=500).grid(row=row+1, column=0, columnspan=2, sticky="w", padx=10)
-        self._bind_live_update(entry)
+        self.bind_live_update(entry)
         return entry
 
-    def _add_checkbox(self, parent: ttk.Frame, label: str, key: str, row: int, tooltip: str = "") -> tk.BooleanVar:
-        """Add a checkbox widget."""
+    def add_checkbox(self, parent, label, key, row, tooltip=""):
         var = tk.BooleanVar()
         chk = ttk.Checkbutton(parent, text=label, variable=var)
         chk.grid(row=row, column=0, columnspan=2, sticky="w", padx=10, pady=2)
         if tooltip:
             ttk.Label(parent, text=tooltip, foreground="gray", wraplength=500).grid(row=row+1, column=0, columnspan=2, sticky="w", padx=10)
         self.widgets[key] = var
-        self._bind_live_update(var)
+        self.bind_live_update(var)
         return var
-
-    def _add_spinbox_entry(self, parent: ttk.Frame, key: str, label: str = "", row: int = 0, min_value: int = 0, max_value: int = 1000, default: int = 0, tooltip: str = "") -> tk.Spinbox:
-        """Add a spinbox widget for numeric input."""
+    
+    def add_spinbox_entry(self, parent, key, label="", row=0, min_value=0, max_value=1000, default=0, tooltip=""):
         ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", padx=10, pady=2)
         spinbox = tk.Spinbox(parent, from_=min_value, to=max_value, width=5)
         spinbox.delete(0, tk.END)
@@ -164,16 +162,16 @@ class SettingsWindow:
         if tooltip:
             ttk.Label(parent, text=tooltip, foreground="gray", wraplength=500).grid(row=row+1, column=0, columnspan=2, sticky="w", padx=10)
         self.widgets[key] = {"widget": spinbox, "default": default}
-        self._bind_live_update(spinbox)
+        self.bind_live_update(spinbox)
         return spinbox
 
-    def _build_format_and_quality_tab(self) -> None:
-        """Configure the Format and Quality settings tab."""
+    def build_format_and_quality_tab(self):
+
         tab = self.tabs["Format and Quality"]
         tab.columnconfigure(1, weight=1)
         row = 0
+
         ttk.Label(tab, text="Format:").grid(row=row, column=0, sticky="w", padx=10, pady=2)
-        
         format_options = {
             "All Available Formats": "all",
             "Best (Video+Audio)": "best",
@@ -190,415 +188,691 @@ class SettingsWindow:
             "Best Audio (any stream)": "bestaudio*",
             "Worst Audio (any stream)": "worstaudio*",
             "Smallest File": "best -S +size,+br,+res,+fps",
-            "Custom": "custom"
+            "Custom (enter below)": "Custom"
         }
-        
-        self.widgets["format_dropdown"] = ttk.Combobox(tab, values=list(format_options.keys()), state="readonly")
-        self.widgets["format_dropdown"].grid(row=row, column=1, sticky="ew", padx=10)
-        
-        self.widgets["format"] = self._add_labeled_entry(
-            tab, "Custom Format:", row + 2, default=self.ydl_options.get("format", ""),
-            tooltip="Enter a custom yt-dlp format string (e.g., 'bestvideo+bestaudio')."
-        )
-        row += 4
-        
-        self.widgets["final_extension"] = ttk.Combobox(tab, values=self.final_extension_options, state="readonly")
+
+        self.format_var = tk.StringVar(value="Best Video+Audio (Muxed)")
+        self.bind_live_update(self.format_var)
+        self.widgets['format_dropdown'] = ttk.Combobox(tab, textvariable=self.format_var, values=list(format_options.keys()))
+        self.widgets['format_dropdown'].grid(row=row, column=1, sticky="ew", padx=10)
+        row += 1
+
+        # Tooltip
+        ttk.Label(tab, text="Select how yt-dlp chooses formats. Use '+' to combine streams, '/' for fallback.", foreground="gray", wraplength=500).grid(row=row, column=0, columnspan=2, sticky="w", padx=10)
+        row += 1
+
+        # Custom format entry
+        self.widgets['format'] = ttk.Entry(tab)
+        self.widgets['format'].insert(0, format_options["Best (Video+Audio)"])
+        self.widgets['format'].grid(row=row, column=0, columnspan=2, sticky="ew", padx=10, pady=2)
+        row += 1
+
+        # Final Extension Dropdown
         ttk.Label(tab, text="Final Extension:").grid(row=row, column=0, sticky="w", padx=10, pady=2)
-        self.widgets["final_extension"].grid(row=row, column=1, sticky="ew", padx=10)
-        row += 2
-        
-        self.widgets["format_dropdown"].bind("<<ComboboxSelected>>", self._on_format_selected)
-        
-        def _update_final_extension_options(event: Optional[tk.Event] = None) -> None:
-            """Update available file extensions based on selected format."""
-            selected_format = self.widgets["format_dropdown"].get()
-            if "Audio" in selected_format and "Video" not in selected_format:
-                self.widgets["final_extension"]["values"] = ["original"] + self.audio_extensions
-            elif "Video" in selected_format or selected_format in ["Best ≤720p", "Best ≤480p", "Best (Video+Audio)", "Worst Video+Audio (Muxed)"]:
-                self.widgets["final_extension"]["values"] = ["original"] + self.video_extensions
+        self.final_ext_var = tk.StringVar(value="original")
+        self.bind_live_update(self.final_ext_var)
+        self.widgets['final_ext'] = ttk.Combobox(
+            tab, textvariable=self.final_ext_var,
+            values=self.final_ext_options,
+            state="readonly"
+        )
+        self.widgets['final_ext'].grid(row=row, column=1, sticky="ew", padx=10)
+        row += 1
+
+        ttk.Label(tab, text="Expected final extension; helps detect when the file was already downloaded/converted.",
+                  foreground="gray", wraplength=500).grid(row=row, column=0, columnspan=2, sticky="w", padx=10)
+        row += 1
+
+
+        # Sync dropdown and entry
+        def update_format_entry(event=None):
+            selected_label = self.format_var.get()
+            value = format_options.get(selected_label, )
+            if selected_label != "Custom (enter below)":
+                self.widgets['format'].delete(0, tk.END)
+                self.widgets['format'].insert(0, value)
+            # Adapt final extension options
+            if "Audio" in selected_label and not "Video" in selected_label:
+                self.widgets['final_ext']['values'] = ["original"] + self.audio_exts
+                self.widgets['final_ext'].set("original")  # Set default to "original"
+            elif "Video" in selected_label or "Quality" in selected_label or "MP4" in selected_label:
+                self.widgets['final_ext']['values'] = ["original"] + self.video_exts
+                self.widgets['final_ext'].set("original")  # Set default to "original"
             else:
-                self.widgets["final_extension"]["values"] = self.final_extension_options
-            self.widgets["final_extension"].set("original")
-        
-        self.widgets["format_dropdown"].bind("<<ComboboxSelected>>", _update_final_extension_options)
-        
-        self.widgets["no_streams"] = self._add_checkbox(
-            tab, "No Streams", "no_streams", row,
-            tooltip="Prevent automatic stream selection."
-        )
-        row += 2
-        
-        self.widgets["merge_output_format"] = self._add_labeled_entry(
-            tab, "Merge Output Format:", row, default=self.ydl_options.get("merge_output_format", ""),
-            tooltip="Specify the format for merged output files (e.g., mp4, mkv)."
+                self.widgets['final_ext']['values'] = ["original"] + self.video_exts + self.audio_exts  # fallback
+                self.widgets['final_ext'].set("original")  # Set default to "original"
+        self.widgets['format_dropdown'].bind("<<ComboboxSelected>>", update_format_entry)
+
+        self.widgets['allow_unplayable_formats'] = self.add_checkbox(
+            tab, "Allow unplayable formats", 'allow_unplayable_formats', row,
+            tooltip="Allow unplayable formats to be extracted and downloaded."
+        ); row += 2
+
+        self.widgets['ignore_no_formats_error'] = self.add_checkbox(
+            tab, "Ignore 'No video formats' error", 'ignore_no_formats_error', row,
+            tooltip="Useful for extracting metadata even if the video is not downloadable."
+        ); row += 2
+
+        self.widgets['format_sort'] = self.add_labeled_entry(
+            tab, "Format Sort:", row,
+            tooltip="Comma-separated list of fields to sort formats. See 'Sorting Formats' in yt-dlp docs."
+        ); row += 2
+
+        self.widgets['format_sort_force'] = self.add_checkbox(
+            tab, "Force format sort", 'format_sort_force', row,
+            tooltip="Force use of the given format_sort over default sorting."
+        ); row += 2
+
+        self.widgets['prefer_free_formats'] = self.add_checkbox(
+            tab, "Prefer free formats", 'prefer_free_formats', row,
+            tooltip="Prefer free containers over non-free ones of the same quality."
+        ); row += 2
+
+        self.widgets['allow_multiple_video_streams'] = self.add_checkbox(
+            tab, "Allow multiple video streams", 'allow_multiple_video_streams', row,
+            tooltip="Merge multiple video streams into a single file."
+        ); row += 2
+
+        self.widgets['allow_multiple_audio_streams'] = self.add_checkbox(
+            tab, "Allow multiple audio streams", 'allow_multiple_audio_streams', row,
+            tooltip="Merge multiple audio streams into a single file."
         )
 
-    def _on_format_selected(self, event: Optional[tk.Event] = None) -> None:
-        """Update the format field based on the selected format option."""
-        selected = self.widgets["format_dropdown"].get()
-        format_options = {
-            "All Available Formats": "all",
-            "Best (Video+Audio)": "best",
-            "Best Video+Audio (Muxed)": "bv*+ba/best",
-            "Best ≤720p": "bestvideo[height<=720]+bestaudio/best[height<=720]",
-            "Best ≤480p": "bestvideo[height<=480]+bestaudio/best[height<=480]",
-            "Worst Video+Audio (Muxed)": "worst",
-            "Best Video Only": "bestvideo",
-            "Worst Video Only": "worstvideo",
-            "Best Video (any stream)": "bestvideo*",
-            "Worst Video (any stream)": "worstvideo*",
-            "Best Audio Only": "bestaudio",
-            "Worst Audio Only": "worstaudio",
-            "Best Audio (any stream)": "bestaudio*",
-            "Worst Audio (any stream)": "worstaudio*",
-            "Smallest File": "best -S +size,+br,+res,+fps",
-            "Custom": self.widgets["format"].get() or "best"
-        }
-        if selected != "Custom":
-            self.widgets["format"].delete(0, tk.END)
-            self.widgets["format"].insert(0, format_options.get(selected, "best"))
-        self._update_ydl_options()
-        self._update_preview()
-
-    def _build_file_naming_tab(self) -> None:
-        """Configure the File and Naming Options tab."""
+    def build_file_naming_tab(self):
         tab = self.tabs["File and Naming Options"]
         tab.columnconfigure(1, weight=1)
         row = 0
-        self._add_browse_directory(tab, "custom_file_path", "Custom File Path:", row)
-        row += 1
-        self.widgets["output_template"] = self._add_labeled_entry(
-            tab, "Output Template:", row, default=self.ydl_options.get("outtmpl", "%(title)s.%(ext)s"),
-            tooltip="Define the output filename template (e.g., '%(title)s-%(id)s.%(ext)s')."
-        )
+
+        # Custom folder override per file
+        self.add_browse_dir(tab, "custom_file_path", "Per-file Custom Folder (Optional):", row)
         row += 2
-        self.widgets["restrict_filenames"] = self._add_checkbox(
-            tab, "Restrict Filenames", "restrict_filenames", row,
-            tooltip="Restrict filenames to ASCII characters and avoid special characters."
-        )
+
+        # Restrict filenames (ASCII only)
+        self.add_checkbox(tab, key="restrictfilenames",label="Restrict file name", tooltip="Do not allow '&' and spaces in file names",row= row)
         row += 2
-        self.widgets["no_overwrites"] = self._add_checkbox(
-            tab, "No Overwrites", "no_overwrites", row,
-            tooltip="Prevent overwriting existing files."
-        )
+
+        # Windows-safe filenames
+        self.add_checkbox(tab, label="Compatible with windows file naming system",key="windowsfilenames", tooltip="Use Windows-Compatible Filenames", row=row)
         row += 2
-        self.widgets["force_overwrites"] = self._add_checkbox(
-            tab, "Force Overwrites", "force_overwrites", row,
-            tooltip="Force overwriting existing files."
+
+        # Trim filename to limit
+        self.add_spinbox_entry(tab, key="trim_file_name",label="trim file name to characters", tooltip="Limit the filename length (excluding extension) to the specified number of characters", row=row)
+        row += 2
+
+        # Force exact filename
+        self.add_labeled_entry(tab, "force_filename", tooltip="Force Output Filename (no ext):", row=row)
+        row += 2
+
+
+    def build_subtitles_metadata_tab(self):
+        container = self.tabs["Subtitles and Metadata"]
+
+        canvas = tk.Canvas(container)
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
 
-    def _build_subtitles_metadata_tab(self) -> None:
-        """Configure the Subtitles and Metadata tab."""
-        tab = self.tabs["Subtitles and Metadata"]
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        tab = scrollable_frame  # redirect tab to build into this
         tab.columnconfigure(1, weight=1)
         row = 0
-        self.widgets["write_subtitles"] = self._add_checkbox(
-            tab, "Write Subtitles", "write_subtitles", row,
-            tooltip="Download available subtitles."
-        )
-        row += 2
-        self.widgets["write_auto_subtitles"] = self._add_checkbox(
-            tab, "Write Automatic Subtitles", "write_auto_subtitles", row,
-            tooltip="Download automatically generated subtitles."
-        )
-        row += 2
-        self.widgets["embed_subtitles"] = self._add_checkbox(
-            tab, "Embed Subtitles", "embed_subtitles", row,
-            tooltip="Embed subtitles into the video file."
-        )
-        row += 2
-        self.widgets["subtitle_languages"] = self._add_labeled_entry(
-            tab, "Subtitle Languages:", row, default=self.ydl_options.get("subtitle_languages", "en"),
-            tooltip="Comma-separated list of subtitle languages (e.g., 'en,fr')."
-        )
-        row += 2
-        self.widgets["write_thumbnail"] = self._add_checkbox(
-            tab, "Write Thumbnail", "write_thumbnail", row,
-            tooltip="Download and save the video thumbnail."
-        )
-        row += 2
-        self.widgets["embed_thumbnail"] = self._add_checkbox(
-            tab, "Embed Thumbnail", "embed_thumbnail", row,
-            tooltip="Embed the thumbnail into the media file."
-        )
-        row += 2
-        self.widgets["add_metadata"] = self._add_checkbox(
-            tab, "Add Metadata", "add_metadata", row,
-            tooltip="Add metadata to the downloaded file."
-        )
-        row += 2
-        self.widgets["write_info_json"] = self._add_checkbox(
-            tab, "Write Info JSON", "write_info_json", row,
-            tooltip="Write video metadata to a .info.json file."
-        )
-        row += 2
-        self.widgets["extract_comments"] = self._add_checkbox(
-            tab, "Extract Comments", "extract_comments", row,
-            tooltip="Extract video comments and save to a file."
-        )
 
-    def _build_download_behavior_tab(self) -> None:
-        """Configure the Download Behavior tab."""
+        # Download subtitles checkbox
+        self.add_checkbox(
+            tab, "Download Subtitles", "writesubtitles", row,
+            tooltip="Download subtitles if available."
+        ); row += 2
+
+        # Download auto-generated subtitles checkbox
+        self.add_checkbox(
+            tab, "Download Auto-generated Subtitles", "writeautomaticsub", row,
+            tooltip="Download automatically generated subtitles (YouTube only)."
+        ); row += 2
+
+        # Embed subtitles checkbox
+        self.add_checkbox(
+            tab, "Embed Subtitles in Media File", "embedsubtitles", row,
+            tooltip="Embed subtitles into the downloaded video file using ffmpeg."
+        ); row += 2
+
+        # Subtitle languages entry
+        self.widgets['subtitleslangs'] = self.add_labeled_entry(
+            tab, "Subtitle Languages:", row,
+            tooltip="Comma-separated list of languages (e.g., en,es,fr). Use 'all' to download all available."
+        ); row += 2
+
+        # Write metadata checkbox
+        self.add_checkbox(
+            tab, "Add Metadata into file properties", "addmetadata", row,
+            tooltip="Write metadata such as title, artist, etc. into the media file using ffmpeg."
+        ); row += 2
+
+        #write thumbnail checkbox
+        self.add_checkbox(
+            tab, "Write Thumbnail to File", "writethumbnail", row,
+            tooltip="Download Thumbnail file in same folder as video file.\n Must select if Embed Thumbnail is selected."
+        ); row += 2
+
+        # Embed thumbnail checkbox
+        self.add_checkbox(
+            tab, "Embed Thumbnail in File", "embedthumbnail", row,
+            tooltip=" Embed thumbnail image please select Write Thumbnail to file to avoid conflicts."
+        ); row += 2
+
+        # Write description checkbox
+        self.add_checkbox(
+            tab, "Write Video Description to File", "writedescription", row,
+            tooltip="Write the full video description to a separate .description file."
+        ); row += 2
+    
+        self.widgets['writeinfojson'] = self.add_checkbox(
+            tab, "Write Metadata to JSON", "writeinfojson", row,
+            tooltip="Write comments to a JSON file. Requires Download Comments to be enabled."
+        ); row += 2
+
+        # -- Download Comments Section --
+        self.widgets['getcomments'] = self.add_checkbox(
+            tab, "Download Comments (YouTube only)", "getcomments", row,
+            tooltip="Fetch top-level YouTube comments. Requires Metadata to JSON to be enabled.\n May download a lot of data even after the max comments is set."
+        ); row += 2
+
+        self.add_spinbox_entry(
+            tab, key="max_comments", label="Max Comments:", row=row,
+            min_value=10, max_value=1000, default=100,
+            tooltip="Limit number of top-level comments to fetch. Not always Work use with caution."
+        ); row += 2
+        self.add_spinbox_entry(
+            tab,key="max_parents", label="Max Parent Comments:", row=row,default=10,
+            tooltip="Limit number of parent comments to fetch. Not always Work use with caution."
+        ); row += 2
+        self.add_spinbox_entry(
+            tab,key="max_replies", label="Max replies Comments:", row=row,default=10,
+            tooltip="Limit number of replies to fetch. Not always Work use with caution."
+        ); row += 2
+
+        self.widgets['comments_sort'] = ttk.Combobox(tab, state="readonly", values=["top", "new", "relevance"])
+        self.widgets['comments_sort'].set("top")
+        ttk.Label(tab, text="Comment Sort Order:").grid(row=row, column=0, sticky="w", padx=10, pady=2)
+        self.widgets['comments_sort'].grid(row=row, column=1, sticky="ew", padx=10)
+        self.bind_live_update(self.widgets['comments_sort']); row += 2
+
+        # Write annotations (legacy)
+        self.add_checkbox(
+            tab, "Download Annotations (legacy)", "writeannotations", row,
+            tooltip="Download video annotations (legacy YouTube support only)."
+        ); row += 2
+
+    def build_download_behavior_tab(self):
         tab = self.tabs["Download Behavior"]
         tab.columnconfigure(1, weight=1)
         row = 0
-        self.widgets["no_playlist"] = self._add_checkbox(
-            tab, "No Playlist", "no_playlist", row,
-            tooltip="Download only the video, not the entire playlist."
-        )
-        row += 2
-        self.widgets["ignore_errors"] = self._add_checkbox(
-            tab, "Ignore Errors", "ignore_errors", row,
-            tooltip="Continue downloading even if some videos fail."
-        )
-        row += 2
-        self.widgets["retries"] = self._add_spinbox_entry(
-            tab, "retries", "Retries:", row, min_value=0, max_value=100, default=self.ydl_options.get("retries", 10),
-            tooltip="Number of retries for failed downloads."
-        )
-        row += 2
-        self.widgets["fragment_retries"] = self._add_spinbox_entry(
-            tab, "fragment_retries", "Fragment Retries:", row, min_value=0, max_value=100, default=self.ydl_options.get("fragment_retries", 10),
-            tooltip="Number of retries for failed fragments."
-        )
-        row += 2
-        self.widgets["extractor_retries"] = self._add_spinbox_entry(
-            tab, "extractor_retries", "Extractor Retries:", row, min_value=0, max_value=100, default=self.ydl_options.get("extractor_retries", 3),
-            tooltip="Number of retries for extractor failures."
-        )
 
-    def _build_sponsorblock_tab(self) -> None:
-        """Configure the SponsorBlock & Skipping tab."""
-        tab = self.tabs["SponsorBlock & Skipping"]
-        tab.columnconfigure(1, weight=1)
-        row = 0
-        categories = [
-            "sponsor", "intro", "outro", "selfpromo", "interaction",
-            "music_offtopic", "preview", "filler", "exclusive_access",
-            "poi_highlight", "poi_nonhighlight"
-        ]
-        ttk.Label(tab, text="SponsorBlock Categories to Mark:").grid(row=row, column=0, columnspan=2, sticky="w", padx=10, pady=2)
-        row += 1
-        for i, category in enumerate(categories):
-            var = tk.BooleanVar()
-            ttk.Checkbutton(tab, text=category, variable=var).grid(row=row, column=0, columnspan=2, sticky="w", padx=20)
-            self.widgets[f"sponsorblock_mark_{category}"] = var
-            self._bind_live_update(var)
-            row += 1
-        ttk.Label(tab, text="SponsorBlock Categories to Remove:").grid(row=row, column=0, columnspan=2, sticky="w", padx=10, pady=2)
-        row += 1
-        for i, category in enumerate(categories):
-            var = tk.BooleanVar()
-            ttk.Checkbutton(tab, text=category, variable=var).grid(row=row, column=0, columnspan=2, sticky="w", padx=20)
-            self.widgets[f"sponsorblock_remove_{category}"] = var
-            self._bind_live_update(var)
-            row += 1
-        self.widgets["sponsorblock_chapter_title"] = self._add_labeled_entry(
-            tab, "SponsorBlock Chapter Title:", row, default=self.ydl_options.get("sponsorblock_chapter_title", "[SponsorBlock]: %(category_names)l"),
-            tooltip="Template for SponsorBlock chapter titles."
-        )
+        self.add_checkbox(
+            tab, "Continue Partially Downloaded Files", "continue_dl", row,
+            tooltip="Resume partially downloaded files instead of starting over."
+        ); row += 2
 
-    def _build_miscellaneous_tab(self) -> None:
-        """Configure the Miscellaneous Settings tab."""
+        self.widgets['download_archive'] = self.add_labeled_entry(
+            tab, "Download Archive File Path:", row,
+            tooltip="Path to a file where IDs of already downloaded videos are stored."
+        ); row += 2
+
+        self.add_spinbox_entry(
+            tab, "retries", label="Retry Attempts:", row=row,
+            min_value=0, max_value=10, default=3,
+            tooltip="Number of times to retry for a failed download."
+        ); row += 2
+
+        self.add_spinbox_entry(
+            tab, "fragment_retries", label="Fragment Retry Attempts:", row=row,
+            min_value=0, max_value=10, default=3,
+            tooltip="Number of retries for each video fragment (if segmented)."
+        ); row += 2
+
+        self.widgets['ratelimit'] = self.add_labeled_entry(
+            tab, "Download Rate Limit (e.g., 500K or 2M):", row,
+            tooltip="Limit download speed (e.g., 500K for 500 Kilobytes/sec, 2M for 2 Megabytes/sec)."
+        ); row += 2
+
+        self.add_checkbox(
+            tab, "Skip Unavailable Fragments", "skip_unavailable_fragments", row,
+            tooltip="If a video fragment is missing, skip it instead of failing."
+        ); row += 2
+
+    def build_miscellaneous_tab(self):
         tab = self.tabs["Miscellaneous Settings"]
         tab.columnconfigure(1, weight=1)
         row = 0
-        self.widgets["verbose"] = self._add_checkbox(
-            tab, "Verbose Output", "verbose", row,
-            tooltip="Enable verbose output for debugging."
-        )
-        row += 2
-        self.widgets["quiet"] = self._add_checkbox(
-            tab, "Quiet Mode", "quiet", row,
-            tooltip="Suppress non-error messages."
-        )
-        row += 2
-        self.widgets["no_warnings"] = self._add_checkbox(
-            tab, "No Warnings", "no_warnings", row,
-            tooltip="Suppress warning messages."
-        )
-        row += 2
-        self.widgets["simulate"] = self._add_checkbox(
-            tab, "Simulate Download", "simulate", row,
-            tooltip="Simulate the download without actually downloading."
-        )
-        row += 2
-        self.widgets["keep_temp"] = self._add_checkbox(
-            tab, "Keep Temporary Files", "keep_temp", row,
-            tooltip="Keep temporary files after download."
-        )
+         # Verbose / Quiet output mode (radio buttons)
+        ttk.Label(tab, text="Output Mode:").grid(row=row, column=0, sticky="w", padx=10, pady=(10, 0))
+        self.output_mode = tk.StringVar(value="normal")
+        output_modes = [("Normal Output", "normal"), ("Verbose Output", "verbose"), ("Quiet Output", "quiet")]
+        for text, val in output_modes:
+            ttk.Radiobutton(tab, text=text, variable=self.output_mode, value=val).grid(row=row, column=1, sticky="w", padx=10)
+            row += 1
 
-    def _bind_live_update(self, widget: Union[tk.Entry, tk.BooleanVar, tk.Spinbox]) -> None:
-        """Bind widget changes to update ydl options and preview."""
-        if isinstance(widget, tk.Entry):
-            widget.bind("<KeyRelease>", lambda e: [self._update_ydl_options(), self._update_preview()])
-        elif isinstance(widget, tk.BooleanVar):
-            widget.trace_add("write", lambda *args: [self._update_ydl_options(), self._update_preview()])
-        elif isinstance(widget, tk.Spinbox):
-            widget.bind("<KeyRelease>", lambda e: [self._update_ydl_options(), self._update_preview()])
-            widget.bind("<ButtonRelease-1>", lambda e: [self._update_ydl_options(), self._update_preview()])
+        self.widgets['output_mode'] = self.output_mode
+        self.bind_live_update(self.output_mode)
+        self.add_checkbox(
+            tab, "Ignore Errors", "ignoreerrors", row,
+            tooltip="Continue downloading even if some downloads fail."
+        ); row += 2
 
-    def _update_ydl_options(self) -> None:
-        """Update the ydl options dictionary based on widget values."""
-        if self.is_loading:
-            return
-        self.ydl_options = {}
-        for key, widget in self.widgets.items():
-            if isinstance(widget, tk.Entry):
-                value = widget.get().strip()
-                if value:
-                    self.ydl_options[key] = value
-            elif isinstance(widget, tk.BooleanVar):
-                self.ydl_options[key] = widget.get()
-            elif isinstance(widget, dict) and "widget" in widget:
-                try:
-                    value = int(widget["widget"].get())
-                    self.ydl_options[key] = value
-                except ValueError:
-                    self.ydl_options[key] = widget["default"]
-            elif isinstance(widget, ttk.Combobox):
-                value = widget.get()
-                if value and key != "format_dropdown":
-                    self.ydl_options[key] = value
-        
-        sponsorblock_mark = []
-        sponsorblock_remove = []
+        self.add_checkbox(
+            tab, "No Overwrites", "nooverwrites", row,
+            tooltip="Skip downloads if the file already exists."
+        ); row += 2
+
+        self.add_checkbox(
+            tab, "Download in Background", "concurrent_fragment_downloads", row,
+            tooltip="Allow downloading fragments in parallel to speed up downloads."
+        ); row += 2
+
+        self.widgets['user_agent'] = self.add_labeled_entry(
+            tab, "Custom User Agent:", row,
+            tooltip="Override the user-agent string sent with requests."
+        ); row += 2
+
+        self.widgets['referer'] = self.add_labeled_entry(
+            tab, "Referer Header:", row,
+            tooltip="Set a custom HTTP referer header. Useful for some sites."
+        ); row += 2
+
+        self.widgets['sleep_interval'] = self.add_spinbox_entry( parent=tab, key="sleep_interval", label="Sleep Interval:", row=row,
+            min_value=0, default=0,tooltip="Number of seconds to sleep before each download."); row += 2
+
+        self.widgets['source_address'] = self.add_labeled_entry(
+            tab, "Source Address:", row,
+            tooltip="Client-side IP address to bind to for outgoing connections."
+        ); row += 2
+
+
+    def build_sponsorblock_tab(self):
+        tab = self.tabs["SponsorBlock & Skipping"]
+        tab.columnconfigure(0, weight=1)
+
+        # Create two separate frames: one for category checkboxes and one for inputs
+        top_frame = ttk.Frame(tab)
+        top_frame.pack(fill="x", padx=10, pady=5)
+        middle_label = ttk.Label(tab, text="Adds chapter markers for selected segment types (e.g. sponsor, intro) without removing them.", font=("Arial", 8))
+        middle_label.pack(pady=5)
+
+        bottom_frame = ttk.Frame(tab)
+        bottom_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        bottom_frame.columnconfigure(1, weight=1)
+
         categories = [
             "sponsor", "intro", "outro", "selfpromo", "interaction",
             "music_offtopic", "preview", "filler", "exclusive_access",
             "poi_highlight", "poi_nonhighlight"
         ]
-        for category in categories:
-            if self.widgets.get(f"sponsorblock_mark_{category}", tk.BooleanVar()).get():
-                sponsorblock_mark.append(category)
-            if self.widgets.get(f"sponsorblock_remove_{category}", tk.BooleanVar()).get():
-                sponsorblock_remove.append(category)
+
+        # SponsorBlock Remove
+        row = 0
+        ttk.Label(top_frame, text="Remove Categories:").grid(row=row, column=0, sticky="w", pady=5)
+        self.widgets['sponsorblock_remove'] = {}
+        column = 1
+        for cat in categories:
+            var = tk.BooleanVar()
+            chk = ttk.Checkbutton(top_frame, text=cat, variable=var)
+            self.bind_live_update(var)
+            chk.grid(row=row, column=column, sticky="w", padx=5)
+            self.widgets['sponsorblock_remove'][cat] = var
+            column += 1
+            if column > 5:
+                column = 1
+                row += 1
+        row += 1
+
+        # SponsorBlock Mark
+        ttk.Label(top_frame, text="Mark Categories:").grid(row=row, column=0, sticky="w", pady=5)
+        self.widgets['sponsorblock_mark'] = {}
+        column = 1
+        for cat in categories:
+            var = tk.BooleanVar()
+            chk = ttk.Checkbutton(top_frame, text=cat, variable=var)
+            self.bind_live_update(var)
+            chk.grid(row=row, column=column, sticky="w", padx=5)
+            self.widgets['sponsorblock_mark'][cat] = var
+            column += 1
+            if column > 5:
+                column = 1
+                row += 1
+
+        # Chapter title format
+        self.widgets['sponsorblock_chapter_title'] = self.add_labeled_entry(
+            bottom_frame, "Chapter Title Format:", 0,
+            tooltip="Custom format for SponsorBlock chapters (e.g., [Sponsor: {start}–{end}])"
+        )
+
+        # Custom API endpoint
+        self.widgets['sponsorblock_api'] = self.add_labeled_entry(
+            bottom_frame, "SponsorBlock API URL:", 2,
+            tooltip="Alternative API endpoint (default is https://sponsor.ajay.app)"
+        )
+
+        # Remove silent
+        self.add_checkbox(
+            bottom_frame, "Silent Remove if No Segments", "sponsorblock_remove_silent", 4,
+            tooltip="Do not show error if SponsorBlock segments are not found."
+        )
+
+        # Allow querying
+        self.add_checkbox(
+            bottom_frame, "Allow SponsorBlock Querying", "sponsorblock_query", 6,
+            tooltip="Enable SponsorBlock querying even if no removal/marking is specified."
+        )
+
+    # code for dynamic updating and saving of settings 
+    def bind_live_update(self, widget: Union[tk.Entry, tk.BooleanVar, tk.Spinbox]) -> None:
+        if isinstance(widget, ttk.Entry) or isinstance(widget, tk.Spinbox):
+            widget.bind("<KeyRelease>", lambda e: self.save())
+        elif isinstance(widget, ttk.Combobox):
+            widget.bind("<<ComboboxSelected>>", lambda e: self.save())
+        elif isinstance(widget, tk.BooleanVar):
+            widget.trace_add("write", lambda *args: self.save())
         
-        if sponsorblock_mark:
-            self.ydl_options["sponsorblock_mark"] = sponsorblock_mark
-        if sponsorblock_remove:
-            self.ydl_options["sponsorblock_remove"] = sponsorblock_remove
-        
+    def load_values(self):
+        self.is_loading = True
+        try:
+            postprocessors = self.ydl_opts.get("postprocessors", [])
+            pp_map = {pp["key"]: pp for pp in postprocessors if "key" in pp}
+
+            # SponsorBlock categories — set early from top-level keys
+            for sb_key in ("sponsorblock_remove", "sponsorblock_mark"):
+                enabled = self.ydl_opts.get(sb_key, [])
+                for cat_key, var in self.widgets.get(sb_key, {}).items():
+                    var.set(cat_key in enabled)
+
+
+            # Main widget loading
+            for key, widget in self.widgets.items():
+                if key in ("sponsorblock_remove", "sponsorblock_mark"):
+                    continue  # already handled above
+
+                value = self.ydl_opts.get(key)
+
+                if key == "output_mode":
+                    if self.ydl_opts.get("verbose"):
+                        widget.set("verbose")
+                    elif self.ydl_opts.get("quiet"):
+                        widget.set("quiet")
+                    else:
+                        widget.set("normal")
+
+                elif isinstance(widget, tk.BooleanVar):
+                    widget.set(bool(value))
+
+                elif isinstance(widget, ttk.Combobox):
+                    if key == "format":
+                        # Special handling for format dropdown
+                        if value in self.format_var.get():
+                            widget.set(value)
+                        else:
+                            widget.set("Custom (enter below)")
+                    elif key == "final_ext":
+                        widget.set(value if value and value in self.final_ext_options else "original")
+                    else:
+                        widget.set(str(value) if value is not None else "")
+
+                elif isinstance(widget, ttk.Entry):
+                    widget.delete(0, tk.END)
+                    widget.insert(0, str(value) if value is not None else "")
+
+                elif isinstance(widget, dict) and "widget" in widget and "default" in widget:
+                    try:
+                        spinbox = widget["widget"]
+                        default_value = widget["default"]  # Fetch the default value from the dictionary
+                        spinbox.delete(0, tk.END)
+                        spinbox.insert(0, int(value) if value is not None else int(default_value))
+                    except ValueError:
+                        spinbox.delete(0, tk.END)
+                        spinbox.insert(0, default_value)
+
+            # Postprocessor-related states
+            if "FFmpegMetadata" in pp_map:
+                self.widgets.get("addmetadata", tk.BooleanVar()).set(pp_map["FFmpegMetadata"].get("add_metadata", False))
+                self.widgets.get("add_chapters", tk.BooleanVar()).set(pp_map["FFmpegMetadata"].get("add_chapters", False))
+
+            if "FFmpegExtractAudio" in pp_map:
+                self.widgets.get("final_ext", ttk.Combobox()).set(pp_map["FFmpegExtractAudio"].get("preferredcodec", ""))
+
+            elif "FFmpegVideoConvertor" in pp_map:
+                self.widgets.get("final_ext", ttk.Combobox()).set(pp_map["FFmpegVideoConvertor"].get("preferedformat", ""))
+
+            if "EmbedThumbnail" in pp_map:
+                self.widgets.get("embedthumbnail", tk.BooleanVar()).set(True)
+                self.widgets.get("writethumbnail", tk.BooleanVar()).set(True)
+
+            # Load SponsorBlock API — from any matching pp with "api"
+            for pp in postprocessors:
+                if pp.get("key") == "SponsorBlock" and "api" in pp:
+                    self.widgets.get("sponsorblock_api", ttk.Entry()).delete(0, tk.END)
+                    self.widgets.get("sponsorblock_api", ttk.Entry()).insert(0, pp.get("api"))
+                    break  # only load first matching one            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load values: {e}")
+        finally:
+            self.is_loading = False
+            self.update_preview(self.ydl_opts)
+            
+    def get_ydl_opts(self):
+        opts = {}
         postprocessors = []
-        if self.ydl_options.get("add_metadata"):
-            postprocessors.append({"key": "FFmpegMetadata", "add_metadata": True, "add_chapters": True})
-        if self.ydl_options.get("embed_thumbnail"):
-            postprocessors.append({"key": "EmbedThumbnail"})
-        if self.ydl_options.get("embed_subtitles"):
-            postprocessors.append({"key": "FFmpegEmbedSubtitle"})
-        
-        final_extension = self.ydl_options.get("final_extension")
-        format_value = self.ydl_options.get("format")
-        if final_extension and final_extension != "original":
-            if final_extension in self.audio_extensions:
+
+        #Handling sponsorblock out of main loop
+        sponsorblock_remove = []
+        sponsorblock_mark = []
+        for key, widget in self.widgets.get("sponsorblock_remove", {}).items():
+            if widget.get():
+                sponsorblock_remove.append(key)
+        for key, widget in self.widgets.get("sponsorblock_mark", {}).items():
+            if widget.get():
+                sponsorblock_mark.append(key)
+        if sponsorblock_remove:
+            opts["sponsorblock_remove"] = sponsorblock_remove
+        if sponsorblock_mark:
+            opts["sponsorblock_mark"] = sponsorblock_mark
+        # 1. Collect from widgets
+        for key, widget in self.widgets.items():
+            if key == "sponsorblock_remove" or key == "sponsorblock_mark":
+                continue
+            elif key == "output_mode":
+                mode = widget.get()
+                if mode == "verbose":
+                    opts["verbose"] = True
+                elif mode == "quiet":
+                    opts["quiet"] = True
+
+            elif key == "embedsubtitles" and widget.get() and not opts.get("writesubtitles"):
+                opts["writesubtitles"] = True
+                opts["embedsubtitles"] = True
+
+            elif isinstance(widget, tk.BooleanVar):
+                if isinstance(widget, tk.BooleanVar):
+                    opts[key] = widget.get()
+                
+            elif isinstance(widget, dict) and "widget" in widget and "default" in widget:
+                spinbox = widget["widget"]
+                default_value = widget["default"]
+                try:
+                    opts[key] = int(spinbox.get().strip()) if spinbox.get().strip() else default_value
+                except ValueError:
+                    opts[key] = default_value
+
+            elif isinstance(widget, ttk.Entry):
+                value = widget.get().strip()
+                if value:
+                    opts[key] = value
+
+            elif isinstance(widget, ttk.Combobox):
+                value = widget.get().strip()
+                if key == "final_ext" and value == "original":
+                    opts[key] = None  # Explicitly set to None for "original"
+                elif value:
+                    opts[key] = value
+        #manage commnets if getcomments is selected then only max_comments and comments_sort will be selected
+        if opts.get("getcomments"):
+            opts["writeinfojson"] = True
+            opts["extractor_args"] = {
+                "youtube": {
+                    "max_comments": [
+                        str(opts.get('max_comments','100')),# Max number of comments to fetch
+                        str(opts.get('max_parents')),# Max number of parent comments to fetch
+                        str(opts.get('max_replies')),# Max number of replies to fetch
+                    ],
+                }
+            }
+
+        else:
+            opts.pop("max_comments", None)
+            opts.pop("comments_sort", None)
+        # 2. Postprocessors
+
+        final_ext = opts.get("final_ext",None).lower()
+        format_choice = opts.get("format", "").lower()
+
+        if final_ext and final_ext != "original":
+            if final_ext in self.audio_exts:
                 quality = "5"
-                if "best" in format_value:
+                if "best" in format_choice:
                     quality = "0"
-                elif "smallest" in format_value:
+                elif "smallest" in format_choice:
                     quality = "9"
                 postprocessors.append({
                     "key": "FFmpegExtractAudio",
-                    "preferredcodec": final_extension,
+                    "preferredcodec": final_ext,
                     "preferredquality": quality
                 })
-            elif final_extension in self.video_extensions:
+            elif final_ext in self.video_exts:
                 postprocessors.append({
                     "key": "FFmpegVideoConvertor",
-                    "preferedformat": final_extension
+                    "preferedformat": final_ext
                 })
-        
-        if sponsorblock_mark or sponsorblock_remove:
+            elif final_ext == "original" or not final_ext:
+                final_ext = None
+
+        # Metadata
+        if opts.get("addmetadata") or opts.get("add_chapters") or opts.get("sponsorblock_mark") or opts.get("sponsorblock_remove"):
+            meta_pp = {"key": "FFmpegMetadata"}
+            if opts.get("addmetadata"):
+                meta_pp["add_metadata"] = True
+            if opts.get("add_chapters") or opts.get("sponsorblock_mark") or opts.get("sponsorblock_remove"):
+                meta_pp["add_metadata"] = True
+                meta_pp["add_chapters"] = True
+            postprocessors.append(meta_pp)
+
+        #EmbedSubtitles
+        if opts.get("embedsubtitles") and opts.get("writesubtitles"):
+            postprocessors.append({
+                'key': 'FFmpegEmbedSubtitle',
+            })
+
+        #Sponsorblock Segment ensuring we don't have empty values in the list and we do not Repeat same code Twice
+        if opts.get("sponsorblock_remove") or opts.get("sponsorblock_mark"):
             postprocessors.append({
                 "key": "SponsorBlock",
-                "categories": sponsorblock_mark or sponsorblock_remove,
-                "when": "after_filter"
+                "api": opts.get("sponsorblock_api", "https://sponsor.ajay.app"),
+                "categories": opts.get("sponsorblock_mark", []) + opts.get("sponsorblock_remove", []),
+                "when":"after_filter"
             })
             postprocessors.append({
-                "key": "ModifyChapters",
-                "sponsorblock_chapter_title": self.ydl_options.get("sponsorblock_chapter_title", "[SponsorBlock]: %(category_names)l"),
-                "remove_sponsor_segments": sponsorblock_remove if sponsorblock_remove else []
+                "key":"ModifyChapters",
+                "sponsorblock_chapter_title":opts.get("sponsorblock_chapter_title",'[SponsorBlock]: %(category_names)l'),
+                'remove_chapters_patterns': [],
+                'remove_ranges': [],                
+                'remove_sponsor_segments': opts.get("sponsorblock_remove", []),
             })
-        
+
+        # Embed
+        if opts.get("embedthumbnail"):
+            if not opts.get("writethumbnail", False):
+                opts["writethumbnail"] = True
+            postprocessors.append({"key": "EmbedThumbnail"})
+
         if postprocessors:
-            self.ydl_options["postprocessors"] = postprocessors
-        self.ydl_options["format_dropdown"] = self.widgets["format_dropdown"].get()
+            opts["postprocessors"] = postprocessors
 
-    def _load_values(self) -> None:
-        """Load widget values from the current ydl options."""
-        self.is_loading = True
+        return opts
+
+
+    def update_preview(self, opts: Optional[Dict]=None):
+        if hasattr(self, "preview_text"):
+            self.preview_text.config(state="normal")
+            self.preview_text.delete("1.0", tk.END)
+            self.preview_text.insert("1.0", json.dumps(opts or self.ydl_opts, indent=4))
+            self.preview_text.config(state="disabled")
+
+    def save(self):
+        if self.is_loading:
+            return
+        opts = self.get_ydl_opts()
+        self.ydl_opts = opts
+        self.update_preview(opts)
+        self.mark_as_unsaved_if_modified()
+
+    def save_and_close(self):
+        self.save()
+        self.master.destroy()
+
+    def cancel(self):
+        self.master.destroy()
+        self.master.grab_release()
+        self.ydl_opts = self.initial_options or {}
+
+    def mark_as_unsaved_if_modified(self):
+        current_name = self.preset_var.get()
+        if current_name in ["New/Unsaved", ""]:
+            return  # Already unsaved
         try:
-            for key, widget in self.widgets.items():
-                if isinstance(widget, ttk.Combobox):
-                    value = self.ydl_options.get(key, "original")
-                    values = widget.cget("values")
-                    if value in values:
-                        widget.set(value)
-                    else:
-                        widget.set("original")
-                elif isinstance(widget, tk.Entry):
-                    widget.delete(0, tk.END)
-                    widget.insert(0, self.ydl_options.get(key, ""))
-                elif isinstance(widget, tk.BooleanVar):
-                    widget.set(self.ydl_options.get(key, False))
-                elif isinstance(widget, dict) and "widget" in widget:
-                    w = widget["widget"]
-                    w.delete(0, tk.END)
-                    w.insert(0, str(self.ydl_options.get(key, widget["default"])))
-
-            categories = [
-                "sponsor", "intro", "outro", "selfpromo", "interaction",
-                "music_offtopic", "preview", "filler", "exclusive_access",
-                "poi_highlight", "poi_nonhighlight"
-            ]
-            sponsorblock_mark = self.ydl_options.get("sponsorblock_mark", [])
-            sponsorblock_remove = self.ydl_options.get("sponsorblock_remove", [])
-            for category in categories:
-                mark_var = self.widgets.get(f"sponsorblock_mark_{category}")
-                if mark_var:
-                    mark_var.set(category in sponsorblock_mark)
-                remove_var = self.widgets.get(f"sponsorblock_remove_{category}")
-                if remove_var:
-                    remove_var.set(category in sponsorblock_remove)
-        finally:
-            self.is_loading = False
-
-    def _update_preview(self, options: Optional[Dict] = None) -> None:
-        """Update the preview text with the current ydl options."""
-        self.preview_text.config(state="normal")
-        self.preview_text.delete("1.0", tk.END)
-        self.preview_text.insert("1.0", "Settings Preview:\n")
-        self.preview_text.insert("2.0", json.dumps(self.ydl_options, indent=4))
-        self.preview_text.config(state="disabled")
-
-    def _save_preset(self) -> None:
-        """Save the current settings as a preset file."""
-        name = tk.simpledialog.askstring("Save Preset", "Enter preset name:", parent=self.window)
+            with open(os.path.join(self.preset_dir, f"{current_name}.json")) as f:
+                saved_opts = json.load(f)
+            if saved_opts != self.ydl_opts:
+                self.preset_var.set("New/Unsaved")
+        except:
+            self.preset_var.set("New/Unsaved")
+        
+    def save_preset(self):
+        name = self.preset_var.get()
+        if name in ["", "New/Unsaved"]:
+            name = tk.simpledialog.askstring("Save Preset", "Enter preset name:")
         if not name:
             return
-        path = os.path.join(self.preset_directory, f"{name}.json")
-        try:
-            with open(path, "w") as f:
-                json.dump(self.ydl_options, f, indent=4)
-            self._refresh_preset_list()
-            self.preset_var.set(name)
-            messagebox.showinfo("Success", f"Preset '{name}' saved successfully!")
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to save preset: {e}")
+        file_path = os.path.join(self.preset_dir, f"{name}.json")
+        with open(file_path, "w") as f:
+            json.dump(self.get_ydl_opts(), f, indent=4)
+        messagebox.showinfo("Saved", f"Preset '{name}' saved successfully.")
+        self.refresh_preset_list()
+        self.preset_var.set(name)
 
-    def _save_and_close(self) -> None:
-        """Save the current settings and close the window."""
-        self._update_ydl_options()
-        self.window.destroy()
-        self.initial_options = self.ydl_options
-
-    def _cancel(self) -> None:
-        """Cancel changes and close the window."""
-        self.ydl_options = self.initial_options
-        self.window.destroy()
-
-
-def show_settings_window(parent: tk.Tk, initial_options: Optional[Dict] = None, is_global: bool = False) -> Dict:
-    """Display the settings window and return the selected options."""
-    settings_window = SettingsWindow(parent, initial_options, is_global)
-    parent.wait_window(settings_window.window)
-    return settings_window.ydl_options
+def show_settings_window(master, initial_options: Optional[Dict] = None,is_global: bool =False) -> Dict:
+    """
+    Show the settings window and return the selected options.
+    :param master: The parent window.
+    :param initial_options: Initial options to load into the settings window.
+    :param global_change: If True, the settings window will be treated as a global change.
+    :return: The selected options from the settings window.
+    """
+    settings_window = SettingsWindow(master, initial_options,global_change=is_global)
+    master.wait_window(settings_window.master)
+    if settings_window.ydl_opts == {} or settings_window.ydl_opts == initial_options:
+        return initial_options
+    else:
+    # Return the final options
+        return settings_window.ydl_opts
+    
+# Example usage
+if __name__ == "__main__":
+    root = tk.Tk()
+    options = show_settings_window(root, is_global=True)
+    print("Selected Options:", options)
+    root.mainloop()

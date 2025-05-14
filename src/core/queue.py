@@ -3,9 +3,9 @@ import aiofiles
 import os
 import pandas as pd
 from tkinter import filedialog, messagebox
-import youtube_dl
+import yt_dlp as youtube_dl
 import tkinter as tk
-from core.logger import Logger
+from core.logger import Logger#type: ignore
 import threading
 import json
 

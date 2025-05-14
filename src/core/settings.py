@@ -1,8 +1,8 @@
 import os
 import json
 from tkinter import messagebox
-from core.logger import Logger
-from ui.widgets import show_settings_window
+from core.logger import Logger#type: ignore[import]
+from ui.widgets import show_settings_window#type: ignore[import]
 from typing import Optional, Dict, Any
 
 
